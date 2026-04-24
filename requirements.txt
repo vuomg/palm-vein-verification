@@ -1,0 +1,33 @@
+# Palm Vein Biometric Authentication Research Platform
+# Python 3.9+ / PyTorch 2.0+
+
+# Deep Learning Framework
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Computer Vision & Image Processing
+opencv-python>=4.8.0
+pillow>=10.0.0
+scikit-image>=0.21.0
+
+# Scientific Computing
+numpy>=1.24.0
+scipy>=1.11.0
+scikit-learn>=1.3.0
+
+# Visualization & Logging
+matplotlib>=3.8.0
+tensorboard>=2.14.0
+tqdm>=4.66.0
+
+# Deep Learning Utilities
+timm>=0.9.0  # Pre-trained models (for SCA-MobileNet alternative backbones)
+torchsummary>=1.5.1
+
+# Data Processing
+pandas>=2.0.0
+pyyaml>=6.0
+
+# Utilities
+requests>=2.31.0

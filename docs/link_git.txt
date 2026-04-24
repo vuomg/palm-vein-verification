@@ -1,0 +1,7 @@
+FGFNet: https://github.com/SeungguKim98/Palm-Vein-Spoof-Detection.git
+
+MPSNet: https://github.com/trungvdhp/mpsnet.git
+
+GSCL: https://github.com/ouwf/GSCL-PyTorch.git
+
+ eusipco2020: https://github.com/ridvansalihkuzu/vein-biometrics/tree/master/eusipco_2020

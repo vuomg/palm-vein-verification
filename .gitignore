@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# PyTorch weights & checkpoints
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.hdf5
+*.onnx
+
+# Datasets (too large, not public)
+datasets/
+
+# Training results & checkpoints (~48 GB)
+results/
+results_*/
+benchmark_results/
+logs/
+
+# Pretrained weights
+pretrained/
+
+# External git clones (have their own repos)
+models/GSCL-PyTorch/
+models/Palm-Vein-Spoof-Detection/
+
+# Paper build artifacts
+paper/*.pdf
+paper/*.docx
+paper/*.log
+paper/*.aux
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz
+paper/*.out
+paper/*.toc
+paper/*.lof
+paper/*.lot
+paper/*.bbl
+paper/*.blg
+paper/palm_vein_docs_pandoc.tex
+paper/audit_word.py
+
+# Archives
+*.rar
+*.zip
+*.7z
+*.tar.gz
+
+# IDE & system
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude Code
+.claude/
+
+# Virtual environments
+venv/
+.venv/
+env/
