@@ -30,23 +30,16 @@ pretrained/
 # External git clones (have their own repos)
 models/GSCL-PyTorch/
 models/Palm-Vein-Spoof-Detection/
+ppt/
 
-# Paper build artifacts
-paper/*.pdf
-paper/*.docx
-paper/*.log
-paper/*.aux
-paper/*.fls
-paper/*.fdb_latexmk
-paper/*.synctex.gz
-paper/*.out
-paper/*.toc
-paper/*.lof
-paper/*.lot
-paper/*.bbl
-paper/*.blg
-paper/palm_vein_docs_pandoc.tex
-paper/audit_word.py
+# Paper (private)
+paper/
+
+# Docs (private)
+docs/
+
+# Thesis (đồ án tốt nghiệp)
+thesis/
 
 # Archives
 *.rar
@@ -66,6 +59,20 @@ desktop.ini
 
 # Claude Code
 .claude/
+CLAUDE.md
+
+# Run scripts (local use only)
+*.bat
+*.sh
+
+# One-off utility tools (local use only)
+tools/
+
+# Archive (local scratch files, not for repo)
+_archive/
+
+# Research notes & PDFs (private)
+newpaper/
 
 # Virtual environments
 venv/

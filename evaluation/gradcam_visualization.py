@@ -36,7 +36,6 @@ sys.path.insert(0, str(PROJECT_ROOT / 'models'))
 _dataset_candidates = [
     PROJECT_ROOT / "datasets" / "final_dataset_openset",
     PROJECT_ROOT / "final_dataset_openset",
-    Path(r"D:\2026\Palm_Vein\final_dataset_openset"),
 ]
 DATASET_DIR = next((p for p in _dataset_candidates if p.exists()), _dataset_candidates[0])
 RESULTS_ROOT = PROJECT_ROOT / "results" / "results_sca_v2_sca_mobilenet"
@@ -114,62 +113,52 @@ NUM_CLASSES = 1084
 
 GRADCAM_MODEL_CONFIGS = {
     "RSNet": {
-        "checkpoint": "results_rsnet/best_rsnet_model_eer.pth",
+        "checkpoint": "results/results_rsnet/best_rsnet_model_eer.pth",
         "input_size": 224,
         "input_channels": 3,
     },
     "SCA-MobileNet (Ours)": {
-        "checkpoint": "results_sca_v2_sca_mobilenet/best_sca_mobilenet_model_eer.pth",
+        "checkpoint": "results/results_sca_v2_sca_mobilenet/best_sca_mobilenet_model_eer.pth",
         "input_size": 224,
         "input_channels": 3,
     },
     "MPSNet": {
-        "checkpoint": "results_mpsnet/best_mpsnet_model_eer.pth",
+        "checkpoint": "results/results_hutech_cnpv1549/mpsnet_mpsnet/best_mpsnet_model_eer.pth",
         "input_size": 224,
         "input_channels": 1,
     },
     "FGFNet": {
-        "checkpoint": "results_fgfnet/best_fgfnet_model_eer.pth",
+        "checkpoint": "results/results_fgfnet/best_fgfnet_model_eer.pth",
         "input_size": 256,
         "input_channels": 3,
     },
     "GSCL (ResNet-18)": {
-        "checkpoint": "GSCL-PyTorch/vein_feature_learning/results/palmvein_resnet18/checkpoints/best_model_seed42.pth",
-        "input_size": 224,
-        "input_channels": 3,
-    },
-    "EUSIPCO-DenseNet161": {
-        "checkpoint": "results_eusipco2020/checkpoints/best_model_seed99.pth",
+        "checkpoint": "models/GSCL-PyTorch/vein_feature_learning/results/palmvein_resnet18/checkpoints/best_model_seed42.pth",
         "input_size": 224,
         "input_channels": 3,
     },
     "DeiT-Tiny": {
-        "checkpoint": "results_DeiT-Tiny/best_DeiT-Tiny_model_eer.pth",
+        "checkpoint": "results/results_DeiT-Tiny/best_DeiT-Tiny_model_eer.pth",
         "input_size": 224,
         "input_channels": 3,
     },
     "MobileViT-S": {
-        "checkpoint": "results_MobileViT-S/best_MobileViT-S_model_eer.pth",
+        "checkpoint": "results/results_MobileViT-S/best_MobileViT-S_model_eer.pth",
         "input_size": 256,
         "input_channels": 3,
     },
     "Swin-Tiny": {
-        "checkpoint": "results_Swin-Tiny/best_Swin-Tiny_model_eer.pth",
-        "input_size": 224,
-        "input_channels": 3,
-    },
-    "ResNet-50": {
-        "checkpoint": None,
+        "checkpoint": "results/results_Swin-Tiny/best_Swin-Tiny_model_eer.pth",
         "input_size": 224,
         "input_channels": 3,
     },
     "EfficientNet-B0": {
-        "checkpoint": "results_efficientnet_b0/best_efficientnet_b0_model_eer.pth",
+        "checkpoint": "results/results_efficientnet_b0/best_efficientnet_b0_model_eer.pth",
         "input_size": 224,
         "input_channels": 3,
     },
     "MobileNetV3-Small": {
-        "checkpoint": "results_mobilenetv3_base/best_mobilenetv3_base_model_eer.pth",
+        "checkpoint": "results/results_mobilenetv3_base/best_mobilenetv3_base_model_eer.pth",
         "input_size": 224,
         "input_channels": 3,
     },
@@ -452,7 +441,7 @@ def generate_gradcam_figure(models_dict, image_paths, labels=None):
     cbar.set_label("Attention intensity", fontsize=10)
     cbar.ax.tick_params(labelsize=9)
 
-    fig.suptitle("Grad-CAM++ Attention Visualization",
+    fig.suptitle("Grad-CAM++ Attention Visualization — All Models",
                  fontsize=14, fontweight="bold", y=0.97)
 
     for fmt in ("png", "pdf"):
@@ -569,12 +558,16 @@ def build_all_gradcam_models():
 
     for name, cfg in GRADCAM_MODEL_CONFIGS.items():
         ckpt_path = cfg["checkpoint"]
-        if ckpt_path is None or not os.path.isfile(ckpt_path):
-            print(f"  [SKIP] {name}: checkpoint not found ({ckpt_path})")
+        if ckpt_path is None:
+            print(f"  [SKIP] {name}: no checkpoint configured")
+            continue
+        ckpt_full = str(PROJECT_ROOT / ckpt_path)
+        if not os.path.isfile(ckpt_full):
+            print(f"  [SKIP] {name}: checkpoint not found ({ckpt_full})")
             continue
 
         try:
-            state_dict = _load_state_dict(ckpt_path)
+            state_dict = _load_state_dict(ckpt_full)
             model = None
 
             # --- RSNet ---
@@ -589,7 +582,8 @@ def build_all_gradcam_models():
                 model = SCAMobileNet(
                     embedding_size=EMBEDDING_DIM, class_size=NUM_CLASSES,
                     pretrained=False, only_embeddings=True,
-                    use_stn=True, use_ca=True, use_spp=True, dropout=0.3
+                    use_stn=True, use_ca=True, use_spp=True, dropout=0.3,
+                    use_bottleneck=False, ca_reduction=32,
                 )
                 model.load_state_dict(state_dict, strict=False)
                 model = _EvalWrapper(model)

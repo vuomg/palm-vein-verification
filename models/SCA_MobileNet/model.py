@@ -485,12 +485,12 @@ class SCAMobileNet(nn.Module):
                 norm_layer=norm_layer
             ))
         
-        # CA inside backbone (fallback when SPP disabled)  
-        if self.use_ca and not self.use_spp:
-            backbone_layers.append(CoordAtt(inp=48, oup=48))
-        
         # Last Conv: out_ch(96) → 576
         last_block_out = BACKBONE_CONFIG[-1][3]  # 96
+
+        # CA inside backbone (fallback when SPP disabled)
+        if self.use_ca and not self.use_spp:
+            backbone_layers.append(CoordAtt(inp=last_block_out, oup=last_block_out))
         backbone_layers.append(Conv2dBnAct(
             last_block_out, LAST_CONV_CHANNELS, kernel_size=1,
             norm_layer=norm_layer, activation_layer=nn.Hardswish

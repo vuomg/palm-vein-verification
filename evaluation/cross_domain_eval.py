@@ -4,14 +4,20 @@ Cross-Domain Evaluation Script (All Models)
 Train on DTS (self-collected palm vein) → Test on TONGJI (palmprint)
 
 Usage:
-    python cross_domain_eval.py --model sca_mobilenet
-    python cross_domain_eval.py --model mpsnet
-    python cross_domain_eval.py --model eusipco2020
-    python cross_domain_eval.py --model rsnet
-    python cross_domain_eval.py --model fgfnet
+    python evaluation/cross_domain_eval.py --model sca_mobilenet
+    python evaluation/cross_domain_eval.py --model mpsnet
+    python evaluation/cross_domain_eval.py --model eusipco2020
+    python evaluation/cross_domain_eval.py --model rsnet
+    python evaluation/cross_domain_eval.py --model fgfnet
+    python evaluation/cross_domain_eval.py --model mobilenetv3_base
+    python evaluation/cross_domain_eval.py --model efficientnet_b0
+    python evaluation/cross_domain_eval.py --model deit_tiny
+    python evaluation/cross_domain_eval.py --model mobilevit_s
+    python evaluation/cross_domain_eval.py --model swin_tiny
 
 This script loads a model trained on the self-collected DTS dataset
 and evaluates it directly on the entire TONGJI dataset (1200 identities).
+Run from project root: python evaluation/cross_domain_eval.py --model <name>
 """
 
 import sys
@@ -27,7 +33,13 @@ from datetime import datetime
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torchvision.transforms as transforms
+import torchvision.models as tv_models
 from tqdm import tqdm
+
+try:
+    import timm
+except ImportError:
+    timm = None
 
 # Add parent dir for imports
 project_root = Path(__file__).resolve().parent.parent
@@ -39,43 +51,44 @@ from biometric.metrics import BiometricEvaluator
 # =====================================================================
 # Configuration
 # =====================================================================
-TONGJI_DIR = Path("TONGJI_dataset_openset")
-OUTPUT_DIR = Path("results_cross_domain")
+TONGJI_DIR = Path("datasets/TONGJI_dataset_openset")
+VERA_DIR   = Path("datasets/VERA_dataset_openset")
+OUTPUT_DIR = Path("results/results_cross_domain")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Model checkpoint mapping (DTS-trained models)
+# Model checkpoint mapping (DTS/HUTECH-trained models)
 MODEL_CONFIGS = {
     'sca_mobilenet': {
         'name': 'SCA-MobileNet',
-        'checkpoint': 'results_sca_v2_sca_mobilenet/best_sca_mobilenet_model_eer.pth',
+        'checkpoint': 'results/results_sca_v2_sca_mobilenet/best_sca_mobilenet_model_eer.pth',
         'input_channels': 3,
         'image_size': 224,
         'model_type': 'sca_mobilenet',
     },
     'mpsnet': {
         'name': 'MPSNet',
-        'checkpoint': 'results_mpsnet/best_mpsnet_model_eer.pth',
+        'checkpoint': 'results/results_mpsnet/best_mspnet_model_eer.pth',
         'input_channels': 1,
         'image_size': 224,
         'model_type': 'mpsnet',
     },
     'eusipco2020': {
         'name': 'Modified-DenseNet161',
-        'checkpoint': 'results_eusipco2020/checkpoints/best_model_seed99.pth',
+        'checkpoint': 'results/results_eusipco2020_eusipco2020/best_eusipco2020_model_eer.pth',
         'input_channels': 3,
         'image_size': 224,
         'model_type': 'eusipco2020',
     },
     'rsnet': {
         'name': 'RSNet',
-        'checkpoint': 'results_rsnet/best_rsnet_model_eer.pth',
+        'checkpoint': 'results/results_rsnet/best_rsnet_model_eer.pth',
         'input_channels': 3,
         'image_size': 224,
         'model_type': 'rsnet',
     },
     'fgfnet': {
         'name': 'FGFNet',
-        'checkpoint': 'results_fgfnet/best_fgfnet_model_eer.pth',
+        'checkpoint': 'results/results_fgfnet/best_fgfnet_model_eer.pth',
         'input_channels': 3,
         'image_size': 256,
         'model_type': 'fgfnet',
@@ -87,7 +100,97 @@ MODEL_CONFIGS = {
         'image_size': 224,
         'model_type': 'gscl',
     },
+    'mobilenetv3_base': {
+        'name': 'MobileNetV3 (base)',
+        'checkpoint': 'results/results_mobilenetv3_base/best_mobilenetv3_base_model_eer.pth',
+        'input_channels': 3,
+        'image_size': 224,
+        'model_type': 'mobilenetv3_base',
+    },
+    'efficientnet_b0': {
+        'name': 'EfficientNet-B0',
+        'checkpoint': 'results/results_efficientnet_b0/best_efficientnet_b0_model_eer.pth',
+        'input_channels': 3,
+        'image_size': 224,
+        'model_type': 'sca_transformer',
+        'backbone_name': 'efficientnet_b0',
+    },
+    'deit_tiny': {
+        'name': 'DeiT-Tiny',
+        'checkpoint': 'results/results_DeiT-Tiny/best_DeiT-Tiny_model_eer.pth',
+        'input_channels': 3,
+        'image_size': 224,
+        'model_type': 'sca_transformer',
+        'backbone_name': 'deit_tiny',
+    },
+    'mobilevit_s': {
+        'name': 'MobileViT-S',
+        'checkpoint': 'results/results_MobileViT-S/best_MobileViT-S_model_eer.pth',
+        'input_channels': 3,
+        'image_size': 224,
+        'model_type': 'sca_transformer',
+        'backbone_name': 'mobilevit_s',
+    },
+    'swin_tiny': {
+        'name': 'Swin-Tiny',
+        'checkpoint': 'results/results_Swin-Tiny_Swin-Tiny/best_Swin-Tiny_model_eer.pth',
+        'input_channels': 3,
+        'image_size': 224,
+        'model_type': 'sca_transformer',
+        'backbone_name': 'swin_tiny',
+    },
 }
+
+
+# =====================================================================
+# Inline model classes for models not in models/ directory
+# =====================================================================
+class MobileNetV3Base(nn.Module):
+    """MobileNetV3-Small backbone + BN→Linear→BN embedder (no STN/CA/SPP)."""
+
+    def __init__(self, embedding_size=1024, dropout=0.3):
+        super().__init__()
+        backbone = tv_models.mobilenet_v3_small(weights=None)
+        self.features = backbone.features
+        self.embedder = nn.Sequential(
+            nn.BatchNorm1d(576),
+            nn.Dropout(p=dropout),
+            nn.Linear(576, embedding_size, bias=False),
+            nn.BatchNorm1d(embedding_size),
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = x.mean([2, 3])
+        return self.embedder(x)
+
+
+class SCATransformerBackbone(nn.Module):
+    """timm-based backbone + BN→Dropout→Linear→BN embedder (used for DeiT/Swin/MobileViT/EfficientNet)."""
+
+    BACKBONE_MAP = {
+        'mobilevit_s':    'mobilevit_s.cvnets_in1k',
+        'deit_tiny':      'deit_tiny_patch16_224.fb_in1k',
+        'swin_tiny':      'swin_tiny_patch4_window7_224.ms_in1k',
+        'efficientnet_b0':'efficientnet_b0.ra_in1k',
+    }
+
+    def __init__(self, backbone_name, embedding_size=1024, dropout=0.3):
+        super().__init__()
+        if timm is None:
+            raise ImportError("timm is required. Install with: pip install timm")
+        timm_name = self.BACKBONE_MAP[backbone_name]
+        self.backbone = timm.create_model(timm_name, pretrained=False, num_classes=0, global_pool='avg')
+        feat_dim = self.backbone.num_features
+        self.embedder = nn.Sequential(
+            nn.BatchNorm1d(feat_dim),
+            nn.Dropout(p=dropout),
+            nn.Linear(feat_dim, embedding_size, bias=False),
+            nn.BatchNorm1d(embedding_size),
+        )
+
+    def forward(self, x):
+        return self.embedder(self.backbone(x))
 
 
 # =====================================================================
@@ -176,7 +279,9 @@ def load_model(model_key, num_classes=1084, feature_dim=1024):
             use_stn=True,
             use_ca=True,
             use_spp=True,
-            dropout=0.3
+            dropout=0.3,
+            use_bottleneck=False,
+            ca_reduction=32,
         )
         
     elif model_key == 'mpsnet':
@@ -226,7 +331,17 @@ def load_model(model_key, num_classes=1084, feature_dim=1024):
             head_type='cls_norm',
             num_classes=num_classes
         )
-    
+
+    elif model_key == 'mobilenetv3_base':
+        model = MobileNetV3Base(embedding_size=feature_dim, dropout=0.3)
+
+    elif config['model_type'] == 'sca_transformer':
+        model = SCATransformerBackbone(
+            backbone_name=config['backbone_name'],
+            embedding_size=feature_dim,
+            dropout=0.3,
+        )
+
     # Load weights
     model.load_state_dict(state_dict, strict=False)
     model = model.to(DEVICE)
@@ -272,38 +387,46 @@ def extract_embeddings(model, dataloader, model_type):
 # Main
 # =====================================================================
 def main():
-    parser = argparse.ArgumentParser(description='Cross-Domain Evaluation: DTS → TONGJI')
+    parser = argparse.ArgumentParser(description='Cross-Domain Evaluation: DTS → TONGJI / VERA')
     parser.add_argument('--model', type=str, required=True,
                        choices=list(MODEL_CONFIGS.keys()),
                        help='Model to evaluate')
+    parser.add_argument('--target', type=str, default='tongji',
+                       choices=['tongji', 'vera'],
+                       help='Target dataset (default: tongji)')
     parser.add_argument('--feature-dim', type=int, default=1024)
     parser.add_argument('--batch-size', type=int, default=64)
     args = parser.parse_args()
-    
+
     config = MODEL_CONFIGS[args.model]
-    
+    target = args.target.upper()
+
+    if args.target == 'tongji':
+        target_dirs = [TONGJI_DIR / "train", TONGJI_DIR / "test"]
+        target_desc = "TONGJI (1200 identities, all used)"
+    else:
+        target_dirs = [VERA_DIR / "train", VERA_DIR / "test"]
+        target_desc = "VERA (220 identities, all used)"
+
     print("=" * 70)
-    print(f"CROSS-DOMAIN: {config['name']} (Train DTS → Test TONGJI)")
+    print(f"CROSS-DOMAIN: {config['name']} (Train DTS → Test {target})")
     print("=" * 70)
-    
+
     # 1. Load Model
     print(f"\n[1/3] Loading model...")
     model, config = load_model(args.model, feature_dim=args.feature_dim)
-    
-    # 2. Prepare TONGJI Dataset
-    print(f"\n[2/3] Loading entire TONGJI dataset...")
-    
+
+    # 2. Prepare target dataset
+    print(f"\n[2/3] Loading entire {target} dataset...")
+
     img_size = config['image_size']
     n_channels = config['input_channels']
-    
+
     transform_list = [CLAHETransform(), transforms.Resize((img_size, img_size))]
-    
+
     if n_channels == 3:
         transform_list.append(transforms.Grayscale(num_output_channels=3))
-    else:
-        # 1 channel
-        pass
-    
+
     transform_list.extend([
         transforms.ToTensor(),
         transforms.Normalize(
@@ -311,29 +434,26 @@ def main():
             std=[0.229, 0.224, 0.225][:n_channels]
         )
     ])
-    
+
     test_transform = transforms.Compose(transform_list)
-    
-    dataset = CrossDomainDataset(
-        [TONGJI_DIR / "train", TONGJI_DIR / "test"],
-        transform=test_transform
-    )
+
+    dataset = CrossDomainDataset(target_dirs, transform=test_transform)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False,
                            num_workers=4, pin_memory=True)
-    
+
     # 3. Extract & Evaluate
     print(f"\n[3/3] Extracting embeddings & computing metrics...")
     embeddings, labels = extract_embeddings(model, dataloader, config['model_type'])
-    
+
     print(f"  {len(embeddings)} embeddings, dim={embeddings.shape[1]}, "
           f"{len(np.unique(labels))} identities")
-    
+
     evaluator = BiometricEvaluator()
     results = evaluator.evaluate_verification(embeddings, labels)
-    
+
     # Print results
     print(f"\n{'=' * 70}")
-    print(f"RESULTS: {config['name']} (DTS → TONGJI)")
+    print(f"RESULTS: {config['name']} (DTS → {target})")
     print(f"{'=' * 70}")
     print(f"  EER:            {results['EER']*100:.4f}%")
     print(f"  AUC:            {results['AUC']:.6f}")
@@ -342,15 +462,18 @@ def main():
     print(f"  TAR@1% FAR:     {results['TAR@1%FAR']*100:.3f}%")
     print(f"  D-prime:        {results['d_prime']:.4f}")
     print(f"{'=' * 70}")
-    
-    # Save results
-    OUTPUT_DIR.mkdir(exist_ok=True)
+
+    # Save results — timestamped subfolder per run
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = OUTPUT_DIR / f"{args.target}_{ts}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
     output = {
-        "experiment": f"cross_domain_{args.model}",
+        "experiment": f"cross_domain_{args.model}_{args.target}",
         "timestamp": datetime.now().isoformat(),
         "model": config['name'],
         "train_dataset": "DTS (self-collected, 1084 train identities)",
-        "test_dataset": "TONGJI (1200 identities, all used)",
+        "test_dataset": target_desc,
         "checkpoint": config['checkpoint'],
         "metrics": {
             "eer": float(results['EER']),
@@ -365,11 +488,11 @@ def main():
             "n_imposter_pairs": int(results['n_imposter_pairs'])
         }
     }
-    
-    output_file = OUTPUT_DIR / f"cross_domain_{args.model}.json"
+
+    output_file = run_dir / f"cross_domain_{args.model}.json"
     with open(output_file, 'w') as f:
         json.dump(output, f, indent=2)
-    
+
     print(f"\nSaved to {output_file}")
 
 
