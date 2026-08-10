@@ -53,7 +53,7 @@ SCA-MobileNet ranks **#1 across all 8 scenarios** against 11 baseline models.
 
 Access is restricted to non-commercial academic research. Submit a request at:
 
-> 🤗 [huggingface.co/datasets/vuomg/HUTECH-CNPV1549](https://huggingface.co/datasets/vuomg/HUTECH-CNPV1549) *(coming soon)*
+> 🤗 [huggingface.co/datasets/vuomg/HUTECH-CNPV1549](https://huggingface.co/datasets/vuong2k4/HUTECH-CNPV1549) 
 
 Requests require institutional affiliation and a description of research purpose. Approved within 3–5 business days.
 
